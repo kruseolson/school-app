@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         String    // "PLAYER" | "COACH" | "PARENT"
+  age          Int?
+  zipCode      String?
+  createdAt    DateTime  @default(now())
+
+  coachProfile     CoachProfile?
+  bookingsAsPlayer Booking[]      @relation("PlayerBookings")
+  reviewsAuthored  Review[]       @relation("ReviewAuthor")
+  sessions         Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CoachProfile {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  sport         String    // primary sport
+  experience    String    // "HS_PLAYER" | "COLLEGE_PLAYER" | "FORMER_PRO" | "CERTIFIED"
+  hourlyRate    Int       // dollars per hour
+  bio           String
+  zipCode       String
+  serviceRadius Int       @default(10) // miles
+  instantBook   Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+  reviews  Review[]
+}
+
+model Booking {
+  id            String    @id @default(cuid())
+  coachId       String
+  playerId      String
+  scheduledAt   DateTime
+  durationMin   Int       // 30 / 60 / 90 / 120
+  totalCents    Int       // total charged to player
+  coachCents    Int       // amount coach receives (90%)
+  platformCents Int       // platform fee (10%)
+  location      String
+  notes         String?
+  status        String    @default("PENDING") // PENDING | CONFIRMED | COMPLETED | CANCELLED
+  createdAt     DateTime  @default(now())
+
+  coach  CoachProfile @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  player User         @relation("PlayerBookings", fields: [playerId], references: [id], onDelete: Cascade)
+  review Review?
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  bookingId String   @unique
+  coachId   String
+  authorId  String
+  rating    Int      // 1-5
+  comment   String?
+  createdAt DateTime @default(now())
+
+  booking Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  coach   CoachProfile @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  author  User         @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+}
